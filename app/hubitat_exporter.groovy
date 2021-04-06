@@ -1,4 +1,6 @@
 // Hubitat Exporter
+import groovy.transform.Field
+
 definition(
     name:        "Hubitat Exporter",
     namespace:   "hubitatexporter",
@@ -20,6 +22,12 @@ mappings {
         ]
     }
 }
+
+// Constants
+@Field final List<String> EXCLUDED_ATTRIBUTES = [
+    'colorName',
+    'colorTemperature',
+]
 
 // Constants, but not quite
 String getHUB_LOCAL_IP() {
@@ -305,12 +313,21 @@ Map<String, Object> hubDevices() {
         List<Object> attributes = device.getSupportedAttributes()
 
         for (attribute in attributes) {
+            String name = attribute.name
+
+            // Check if this is an excluded attribute
+            if (name in EXCLUDED_ATTRIBUTES) {
+                continue
+            }
+
             long attributeId = attribute.id
             String dataType  = attribute.dataType
-            String name      = attribute.name
 
             // Object
-            def value = handleAttributeValue(name, device.currentValue(name))
+            def value = handleAttributeValue(
+                name,
+                device.currentValue(name),
+            )
 
             attributeValues[attributeId] = [
                 dataType: dataType,
