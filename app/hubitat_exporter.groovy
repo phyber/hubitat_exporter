@@ -30,14 +30,19 @@ mappings {
 ]
 
 // Constants, but not quite
+// Local IP address to connect to hub
 String getHUB_LOCAL_IP() {
     location.hubs[0].localIP
 }
 
+// Free OS memory information
+// This URL returns a CSV
 String getHUB_FREE_OS_MEMORY() {
     "http://${HUB_LOCAL_IP}:8080/hub/advanced/freeOSMemoryLast"
 }
 
+// Hub temperature information
+// This URL returns a string
 String getHUB_TEMPERATURE_URL() {
     "http://${HUB_LOCAL_IP}:8080/hub/advanced/internalTempCelsius"
 }
@@ -53,7 +58,7 @@ def exporter() {
     // Hub Information
     content += exportHubInfo()
 
-    //Map<String, Object> devices = hubDevices()
+    // Devices information
     content += exportDevices()
 
     render(
@@ -169,21 +174,7 @@ String exportHubInfo() {
     content
 }
 
-Map<String, String> hubInfo() {
-    // Hub type
-    def hub = location.hubs[0]
-
-    Map<String, String> info = [
-        firmware_version: hub.firmwareVersionString,
-        id:               hub.id,
-        name:             hub.name,
-        type:             hub.type,
-        uptime_seconds:   hub.uptime,
-    ]
-
-    info
-}
-
+// Currently unused index page.
 def index() {
     log.info "Index page"
 
@@ -294,6 +285,33 @@ def handleAttributeValue(name, value) {
 }
 
 // Methods for fetching information from the Hub
+// Return free memory information
+Map<String, Object> freeOsMemory() {
+    Map<String, Object> memoryInfo = [:]
+
+    httpGet(HUB_FREE_OS_MEMORY) { resp ->
+        String text = resp.data.getText()
+
+        logDebug "free OS memory response: '${text}'"
+
+        // Get the second line with the interesting data
+        List<String> data = text.split("\n")[1].split(",")
+        logDebug "OS data: ${data}"
+
+        // Turn KiB into MiB for memory numbers
+        memoryInfo = [
+            date:     data[0],
+            freeOS:   (data[1] as int) * 1024,
+            totalJVM: (data[2] as int) * 1024,
+            freeJVM:  (data[3] as int) * 1024,
+            cpuAvg:   data[4],
+        ]
+    }
+
+    memoryInfo
+}
+
+// Return information about hub devices
 Map<String, Object> hubDevices() {
     logDebug "Gathering Hub Devices"
 
@@ -346,31 +364,23 @@ Map<String, Object> hubDevices() {
     deviceInfo
 }
 
-Map<String, Object> freeOsMemory() {
-    Map<String, Object> memoryInfo = [:]
+// Return the basic hub information
+Map<String, String> hubInfo() {
+    // Hub type
+    def hub = location.hubs[0]
 
-    httpGet(HUB_FREE_OS_MEMORY) { resp ->
-        String text = resp.data.getText()
+    Map<String, String> info = [
+        firmware_version: hub.firmwareVersionString,
+        id:               hub.id,
+        name:             hub.name,
+        type:             hub.type,
+        uptime_seconds:   hub.uptime,
+    ]
 
-        logDebug "free OS memory response: '${text}'"
-
-        // Get the second line with the interesting data
-        List<String> data = text.split("\n")[1].split(",")
-        logDebug "OS data: ${data}"
-
-        // Turn KiB into MiB for memory numbers
-        memoryInfo = [
-            date:     data[0],
-            freeOS:   (data[1] as int) * 1024,
-            totalJVM: (data[2] as int) * 1024,
-            freeJVM:  (data[3] as int) * 1024,
-            cpuAvg:   data[4],
-        ]
-    }
-
-    memoryInfo
+    info
 }
 
+// Return hub temperature
 // Return this as float rather than text, it's easier for us to deal with
 // numbers elsewhere
 float temperature() {
@@ -383,6 +393,7 @@ float temperature() {
 }
 
 // Convenience methods
+// Log debug strings if debugging is enabled
 void logDebug(String text) {
     Boolean enabled = settings?.debugEnabled
 
@@ -392,6 +403,7 @@ void logDebug(String text) {
 }
 
 // Hubitat methods
+// Called when settings are updated.
 void updated() {
     log.trace "updated()"
 
@@ -400,6 +412,7 @@ void updated() {
     }
 }
 
+// Called when logging is toggled
 void logsOff() {
     log.warn "debug logging disabled"
 
