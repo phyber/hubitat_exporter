@@ -76,6 +76,11 @@ String getHUB_MESSAGES_URL() {
     "http://${HUB_LOCAL_IP}:8080/hub/messages"
 }
 
+// Get the server metrics URL
+String getAPP_METRICS_URL() {
+    getFullLocalApiServerUrl() + "/metrics?access_token=${state.accessToken}"
+}
+
 // We don't have a real exporter library available, so this is all manually
 // formatted.
 def exporter() {
@@ -216,8 +221,6 @@ String exportHubInfo() {
 def index() {
     log.info "Index page"
 
-    String metrics_url = getFullLocalApiServerUrl() + "/metrics?access_token=${state.accessToken}"
-
     String content = """\
     <!DOCTYPE html>
     <html lang="en">
@@ -226,7 +229,7 @@ def index() {
         </head>
         <body>
             <h1>Hubitat Exporter</h1>
-            <p><a href="${metrics_url}">Metrics</a></p>
+            <p><a href="${APP_METRICS_URL}">Metrics</a></p>
         </body>
     </html>
     """.stripIndent()
@@ -244,7 +247,7 @@ def setupScreen() {
         createAccessToken()
     }
 
-    String url = getFullLocalApiServerUrl() + "/metrics?access_token=${state.accessToken}"
+    String url = getAPP_METRICS_URL()
 
     def content = dynamicPage(
         name: "setupScreen",
