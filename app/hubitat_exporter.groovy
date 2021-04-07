@@ -23,7 +23,6 @@
  *  DEALINGS IN THE SOFTWARE.
  *
  */
-import groovy.json.JsonSlurper
 import groovy.transform.Field
 
 definition(
@@ -31,7 +30,7 @@ definition(
     namespace:   "hubitatexporter",
     author:      "David O'Rourke",
     category:    "Monitoring",
-    description: "Prometheus exporter for Hubitat Elevation",
+    description: "Prometheus exporter for Hubitat Elevation C7",
     iconUrl:     "",
     iconX2Url:   "",
 )
@@ -70,6 +69,11 @@ String getHUB_FREE_OS_MEMORY() {
 // This URL returns a string
 String getHUB_TEMPERATURE_URL() {
     "http://${HUB_LOCAL_IP}:8080/hub/advanced/internalTempCelsius"
+}
+
+// Hub messages, used for firmware upgrade detection
+String getHUB_MESSAGES_URL() {
+    "http://${HUB_LOCAL_IP}:8080/hub/messages"
 }
 
 // We don't have a real exporter library available, so this is all manually
@@ -194,6 +198,15 @@ String exportHubInfo() {
     # HELP hubitat_memory_os_free_bytes OS free memory
     # TYPE hubitat_memory_os_free_bytes gauge
     hubitat_memory_os_free_bytes ${osInfo.freeOS}
+    """.stripIndent()
+
+    // Firmware upgrade available
+    int firmwareUpgradeAvailable = hubFirmwareUpgradeAvailable()
+
+    content += """\
+    # HELP hubitat_firmware_upgrade_available firmware upgrade available
+    # TYPE hubitat_firmware_upgrade_available gauge
+    hubitat_firmware_upgrade_available ${firmwareUpgradeAvailable}
     """.stripIndent()
 
     content
@@ -387,6 +400,32 @@ Map<String, Object> hubDevices() {
     }
 
     deviceInfo
+}
+
+// Return an int indicating if a firmware update is available.
+// 1: yes, 0: no
+// This is pretty basic, there's no good endpoint to tell us this, so we just
+// try to parse the Hub messages.
+// Message resembles:
+// <span id='platformUpdateMessage'>Platform update 2.2.6.139 <a href='/hub/platformUpdate'>available to download</a> (<a href='#' onclick='return dismissFirmwareUpdate(this, \"2.2.6.139\");'>dismiss</a>)</span>
+// and will be part of the messages[] list.
+int hubFirmwareUpgradeAvailable() {
+    Boolean firmwareUpgradeAvailable = false
+
+    httpGet(HUB_MESSAGES_URL) { resp ->
+        // httpGet turns the returned string into JSON for us automatically.
+        Object json     = resp.data
+        String messages = json.messages
+
+        for (message in messages) {
+            if ('platformUpdateMessage' in message) {
+                firmwareUpgradeAvailable = true
+                break
+            }
+        }
+    }
+
+    firmwareUpgradeAvailable ? 1 : 0
 }
 
 // Return the basic hub information
