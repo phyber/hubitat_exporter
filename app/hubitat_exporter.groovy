@@ -87,7 +87,7 @@ def exporter() {
     log.info "Exporting metrics"
 
     // Render this later after it's full of info
-    content = ""
+    String content = ""
 
     // Hub Information
     content += exportHubInfo()
